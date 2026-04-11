@@ -52,7 +52,7 @@ import Layout from '../layouts/Layout.astro';
     document.getElementById('admin-dashboard')!.style.display = 'block';
 
     try {
-      const response = await fetch('http://localhost:10001/api/admin/all-pilots', {
+      const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/admin/all-pilots`, {
           headers: { 'X-Admin-Key': authToken }
       });
 
@@ -98,7 +98,7 @@ import Layout from '../layouts/Layout.astro';
       if(!confirm("Are you sure you want to purge this record?")) return;
 
       try {
-          const response = await fetch(`http://localhost:10001/api/admin/delete-pilot/${pilotName}`, {
+          const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/admin/delete-pilot/${pilotName}`, {
               method: 'DELETE',
               headers: { 'X-Admin-Key': authToken }
           });

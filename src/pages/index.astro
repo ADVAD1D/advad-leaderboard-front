@@ -27,7 +27,7 @@ import Layout from '../layouts/Layout.astro';
 <script>
   async function fetchLeaderboard() {
     try {
-      const response = await fetch('http://localhost:10001/api/top-pilots');
+      const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/top-pilots`);
       if (!response.ok) throw new Error("Failed to fetch data");
       
       const data = await response.json();
