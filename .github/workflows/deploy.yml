@@ -16,6 +16,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Install, build, and upload your Astro site
         uses: withastro/action@v3
+        with:
+          node-version: 22
         env:
           PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL }}
 
