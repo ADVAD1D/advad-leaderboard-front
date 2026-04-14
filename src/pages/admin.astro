@@ -11,8 +11,8 @@ import Layout from '../layouts/Layout.astro';
 
     <div id="auth-section" style="text-align: center; margin-bottom: 2rem;">
         <p style="margin-bottom: 1rem; color: var(--text-muted);">Enter authorization code to decrypt data.</p>
-        <input type="password" id="admin-token" placeholder="ADMIN TOKEN" />
-        <button id="login-btn">DECRYPT</button>
+        <input type="password" id="admin-token" placeholder="ADMIN TOKEN" style="padding: 10px; background: #050510; border: 1px solid #ff0055; color: #fff; text-align: center;" />
+        <button id="login-btn" style="padding: 10px 20px; background: #ff0055; color: white; border: none; font-weight: bold; cursor: pointer; margin-left: 10px;">DECRYPT</button>
     </div>
 
     <section id="admin-dashboard" class="leaderboard" style="display: none;">
@@ -24,12 +24,12 @@ import Layout from '../layouts/Layout.astro';
         <div class="col actions">ACTIONS</div>
       </div>
       <div id="admin-body" class="table-body">
-         <div class="loading">Awaiting decription...</div>
+         <div class="loading">Awaiting decryption...</div>
       </div>
     </section>
     
-    <nav>
-        <a href="/">> RETURN TO PUBLIC LEADERBOARD</a>
+    <nav style="text-align: center; margin-top: 2rem;">
+        <a href="/" style="color: #00ffcc; text-decoration: none;">> RETURN TO PUBLIC LEADERBOARD</a>
     </nav>
   </main>
 </Layout>
@@ -37,42 +37,57 @@ import Layout from '../layouts/Layout.astro';
 <script>
   let authToken = '';
 
-  document.getElementById('login-btn')?.addEventListener('click', async () => {
-      const tokenInput = document.getElementById('admin-token') as HTMLInputElement;
-      authToken = tokenInput.value;
-      if (!authToken) return;
+  const loginBtn = document.getElementById('login-btn');
+  const tokenInput = document.getElementById('admin-token') as HTMLInputElement;
+  const authSection = document.getElementById('auth-section');
+  const adminDashboard = document.getElementById('admin-dashboard');
+  const adminBody = document.getElementById('admin-body');
 
+  loginBtn?.addEventListener('click', async () => {
+      authToken = tokenInput.value;
+      if (!authToken) {
+          alert("PLEASE ENTER A TOKEN.");
+          return;
+      }
+      
+      loginBtn.innerText = 'VERIFYING...';
+      loginBtn.setAttribute('disabled', 'true');
+      
       await loadAdminData();
   });
 
   async function loadAdminData() {
-    const body = document.getElementById('admin-body')!;
-    body.innerHTML = '<div class="loading">Loading records...</div>';
-    document.getElementById('auth-section')!.style.display = 'none';
-    document.getElementById('admin-dashboard')!.style.display = 'block';
-
+    if (!adminBody || !authSection || !adminDashboard || !loginBtn) return;
+    
+    adminBody.innerHTML = '<div class="loading">Loading records from Render...</div>';
+    
     try {
       const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/admin/all-pilots`, {
           headers: { 'X-Admin-Key': authToken }
       });
 
       if (response.status === 403) {
-           alert("ACCESS DENIED");
-           document.getElementById('auth-section')!.style.display = 'block';
-           document.getElementById('admin-dashboard')!.style.display = 'none';
+           alert("ACCESS DENIED: Invalid credentials.");
+           authSection.style.display = 'block';
+           adminDashboard.style.display = 'none';
+           loginBtn.innerText = 'DECRYPT';
+           loginBtn.removeAttribute('disabled');
+           tokenInput.value = ''; // Limpiar el input por seguridad
            return;
       }
 
       if (!response.ok) throw new Error("Failed to fetch data");
       
+      authSection.style.display = 'none';
+      adminDashboard.style.display = 'block';
       const data = await response.json();
       
       if (data.length === 0) {
-        body.innerHTML = '<div class="empty">No records found.</div>';
+        adminBody.innerHTML = '<div class="empty" style="text-align: center; padding: 20px;">No records found in database.</div>';
         return;
       }
 
-      body.innerHTML = '';
+      adminBody.innerHTML = '';
       data.forEach((entry: any, idx: number) => {
         const row = document.createElement('div');
         row.className = 'table-row';
@@ -83,33 +98,53 @@ import Layout from '../layouts/Layout.astro';
           <div class="col phase">${entry.phase}</div>
           <div class="col date">${entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'N/A'}</div>
           <div class="col actions">
-             <button class="btn-danger" onclick="deleteRecord('${entry.pilot}')">PURGE</button>
+             <button class="btn-danger purge-btn" data-pilot="${entry.pilot}" style="background: #ff0055; color: white; border: none; padding: 5px 10px; cursor: pointer;">PURGE</button>
           </div>
         `;
-        body.appendChild(row);
+        adminBody.appendChild(row);
       });
       
     } catch (e) {
-        body.innerHTML = '<div class="error">Data retrieval failed. Check authorization.</div>';
+        console.error(e);
+        adminBody.innerHTML = '<div class="error" style="color: #ff0055; text-align: center; padding: 20px;">Data retrieval failed. Check server connection.</div>';
+        loginBtn.innerText = 'DECRYPT';
+        loginBtn.removeAttribute('disabled');
     }
   }
 
-  (window as any).deleteRecord = async function(pilotName: string) {
-      if(!confirm("Are you sure you want to purge this record?")) return;
+  adminBody?.addEventListener('click', async (e) => {
+      const target = e.target as HTMLElement;
+      
+      if (target.classList.contains('purge-btn')) {
+          const pilotName = target.getAttribute('data-pilot');
+          if (!pilotName) return;
 
-      try {
-          const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/admin/delete-pilot/${pilotName}`, {
-              method: 'DELETE',
-              headers: { 'X-Admin-Key': authToken }
-          });
+          if(!confirm(`WARNING: Are you sure you want to permanently purge pilot ${pilotName}?`)) return;
 
-          if(response.ok) {
-              loadAdminData(); // reload
-          } else {
-              alert("Failed to delete record.");
+          target.innerText = 'PURGING...';
+          target.setAttribute('disabled', 'true');
+          target.style.opacity = '0.5';
+
+          try {
+              const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/admin/delete-pilot/${pilotName}`, {
+                  method: 'DELETE',
+                  headers: { 'X-Admin-Key': authToken } // Se usa la clave guardada en memoria
+              });
+
+              if(response.ok) {
+                  await loadAdminData(); 
+              } else {
+                  alert(`Failed to delete record. Server returned status ${response.status}`);
+                  target.innerText = 'PURGE';
+                  target.removeAttribute('disabled');
+                  target.style.opacity = '1';
+              }
+          } catch(e) {
+              alert("Critical error executing purge maneuver.");
+              target.innerText = 'PURGE';
+              target.removeAttribute('disabled');
+              target.style.opacity = '1';
           }
-      } catch(e) {
-          alert("Error executing purge.");
       }
-  }
+  });
 </script>
